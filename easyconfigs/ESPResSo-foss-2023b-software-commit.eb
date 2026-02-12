@@ -2,6 +2,7 @@ easyblock = 'EB_ESPResSo'
 
 name = 'ESPResSo'
 version = '%(software_commit)s'
+#versionsuffix = '-CUDA-%(cudaver)s'
 
 homepage = 'https://espressomd.org/wordpress'
 description = """A software package for Molecular Dynamics and Monte Carlo
@@ -21,7 +22,6 @@ dependencies = [
     ('Python', '3.11.5'),
     ('SciPy-bundle', '2023.11'),
     ('Boost.MPI', '1.83.0'),
-    ('HeFFTe', '2.4.1'),
     ('Mesa', '23.1.9'),
     ('GSL', '2.7'),
     ('IPython', '8.17.2'),
@@ -30,6 +30,15 @@ dependencies = [
     ('h5py', '3.11.0'),
     ('VTK', '9.3.0'),
 ]
+if 'versionsuffix' in globals() and 'CUDA' in versionsuffix:
+    dependencies += [
+        ('HeFFTe', '2.4.1', versionsuffix),
+        ('CUDA', '12.1.1', '', SYSTEM),
+    ]
+else:
+    dependencies += [
+        ('HeFFTe', '2.4.1'),
+    ]
 
 sources = [
 {
@@ -75,7 +84,14 @@ checksums = [{
 
 # default CUDA compute capabilities to use (override via --cuda-compute-capabilities)
 if any(x[0] == 'CUDA' for x in dependencies):
-    cuda_compute_capabilities = ['5.2', '6.0', '7.0', '7.5', '8.0', '8.6', '9.0']
+    for x in dependencies:
+        if x[0] == 'CUDA':
+            _cuda_version = tuple(x[1].split('.'))
+    cuda_compute_capabilities = []
+    if int(_cuda_version[0]) <= 12:
+        cuda_compute_capabilities += ['6.0', '7.0']
+    cuda_compute_capabilities += ['7.5', '8.0', '8.6', '9.0']
+    preconfigopts = 'CUDAARCHS="%(cuda_cc_cmake)s"'
 
 configopts = f' -DESPRESSO_BUILD_TESTS=ON '
 # make sure the right Python is used (note: -DPython3_EXECUTABLE or -DPython_EXECUTABLE does not work!)
@@ -113,7 +129,6 @@ if any(x[0] == 'HDF5' for x in dependencies):
     _libs.append('espresso_hdf5')
     _python_modules.append('io/writer/h5md.py')
 if any(x[0] == 'CUDA' for x in dependencies):
-    libs.append('espresso_cuda')
     _python_modules.append('cuda_init.py')
 
 _lib_path = 'lib/python%(pyshortver)s/site-packages/espressomd'
